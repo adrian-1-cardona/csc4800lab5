@@ -119,7 +119,10 @@ def minimum_colors(regions, borders, palette):
     return None, None
 
 
-COLORS = ["red", "green", "blue", "yellow"]
+# Three colors, per the problem statement.
+COLORS = ["red", "green", "blue"]
+
+# Maps are (name, regions, borders). Add your own to the MAPS list below.
 
 # Australia: the textbook map. Tasmania is an island, so it borders nothing
 # and is free to take any color.
@@ -137,16 +140,15 @@ RING = (
     [("A", "B"), ("B", "C"), ("C", "D"), ("D", "A")],
 )
 
-# A central region touching three regions that also touch each other. All
-# four border each other, so no color can be reused: this map needs 4.
-PINWHEEL = (
-    "Pinwheel (4 mutually bordering regions)",
-    ["Core", "North", "Southwest", "Southeast"],
-    [("North", "Southwest"), ("North", "Southeast"), ("Southwest", "Southeast"),
-     ("Core", "North"), ("Core", "Southwest"), ("Core", "Southeast")],
+# Three regions that all border each other. None can reuse a color, so this
+# is the case that makes 3 the minimum rather than 2.
+TRIANGLE = (
+    "Three mutually bordering regions",
+    ["X", "Y", "Z"],
+    [("X", "Y"), ("Y", "Z"), ("X", "Z")],
 )
 
-MAPS = [AUSTRALIA, RING, PINWHEEL]
+MAPS = [AUSTRALIA, RING, TRIANGLE]
 
 
 def show(assignment, regions, indent="    "):
@@ -161,25 +163,21 @@ def report(name, regions, borders, show_all=False):
     print("-" * len(name))
     print(f"  {len(regions)} regions, {len(borders)} borders")
 
-    k, solution = minimum_colors(regions, borders, COLORS)
-    if solution is None:
-        print(f"  no coloring with up to {len(COLORS)} colors")
+    solutions = map_coloring_csp(regions, borders, COLORS).solve_all()
+    if not solutions:
+        print(f"  no coloring exists with {len(COLORS)} colors")
         return
 
+    k, _ = minimum_colors(regions, borders, COLORS)
     print(f"  fewest colors needed: {k}")
     print("  one solution:")
-    print(show(solution, regions))
-    print(f"  valid: {is_valid(solution, borders)}")
+    print(show(solutions[0], regions))
+    print(f"  {len(solutions)} solution(s) with {len(COLORS)} colors, "
+          f"all valid: {all(is_valid(s, borders) for s in solutions)}")
 
-    # Count colorings with the minimum palette, and with 3 colors.
-    for size in sorted({k, 3}):
-        if size > len(COLORS):
-            continue
-        solutions = map_coloring_csp(regions, borders, COLORS[:size]).solve_all()
-        print(f"  {len(solutions)} solution(s) with {size} colors")
-        if show_all:
-            for i, each in enumerate(solutions, 1):
-                print(f"    {i:>3}." + show(each, regions, indent=" "))
+    if show_all:
+        for i, each in enumerate(solutions, 1):
+            print(f"    {i:>3}." + show(each, regions, indent=" "))
 
 
 def main():
@@ -196,11 +194,10 @@ def main():
     for name, regions, borders in MAPS:
         report(name, regions, borders, show_all)
 
-    print("\nThree colors is enough for many maps, including Australia, but not")
-    print("for every map: four regions that all border each other force a")
-    print("fourth color. Four is always enough for a flat map (Four Color")
-    print("Theorem). minimum_colors() finds the smallest that works by")
-    print("re-solving the CSP with a bigger palette until one succeeds.")
+    print("\nThree colors handles all three maps. Two is sometimes enough")
+    print("(the ring), but three mutually bordering regions rule it out, which")
+    print("is what makes 3 the minimum. minimum_colors() reports the smallest")
+    print("palette that works by re-solving the CSP with 1, then 2, then 3.")
 
 
 if __name__ == "__main__":
