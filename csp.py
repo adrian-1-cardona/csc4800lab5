@@ -1,3 +1,20 @@
+"""
+CSC 4800 Lab 5 -- Constraint Satisfaction Problems
+
+Map coloring as a CSP: give every region a color so that no two adjacent
+regions share one, using 3 colors.
+
+    Variables    the regions of the map
+    Domains      the 3 available colors
+    Constraints  for each pair of adjacent regions, their colors differ
+
+Some maps have more than one solution, so solve() returns one coloring and
+solve_all() returns every possible coloring.
+
+Run:  python3 csp.py            one solution per map
+      python3 csp.py --all      all possible colorings
+"""
+
 import sys
 
 
@@ -86,7 +103,7 @@ def sudoku_example():
 
 
 def different_colors(region_a, region_b):
-    """Constraint: two bordering regions cannot share a color.
+    """Constraint: two adjacent regions cannot have the same color.
 
     Returns True while either region is still unassigned, so the constraint
     works on the partial assignments backtracking produces.
@@ -110,33 +127,32 @@ def is_valid(assignment, borders):
     return all(assignment[a] != assignment[b] for a, b in borders)
 
 
-def minimum_colors(regions, borders, palette):
-    """Smallest number of colors that works: try 1, then 2, then 3..."""
-    for k in range(1, len(palette) + 1):
-        solution = map_coloring_csp(regions, borders, palette[:k]).solve()
-        if solution is not None:
-            return k, solution
-    return None, None
-
-
 # Three colors, per the problem statement.
 COLORS = ["red", "green", "blue"]
 
-# One spare color, used only to report maps that 3 cannot handle.
-SPARE = "yellow"
-
 # Maps are (name, regions, borders). Add your own to the MAPS list below.
 
-# All three of these border each other, so none can share a color. This is
-# the case that makes 3 the minimum rather than 2.
-BORDER_TRIO = (
-    "Mexico, Guatemala, Belize",
-    ["Mexico", "Guatemala", "Belize"],
-    [("Mexico", "Guatemala"), ("Mexico", "Belize"), ("Guatemala", "Belize")],
+# Mexico, Guatemala and Belize all border each other, so none of the three
+# can share a color: that trio is what makes 3 the minimum rather than 2.
+# The US only touches Mexico, so it does not force a fourth color.
+NORTH = (
+    "United States, Mexico, Guatemala, Belize",
+    ["United States", "Mexico", "Guatemala", "Belize"],
+    [("United States", "Mexico"), ("Mexico", "Guatemala"),
+     ("Mexico", "Belize"), ("Guatemala", "Belize")],
+)
+
+# Regions do not have to touch. Brazil borders neither Chile nor Ecuador, and
+# Chile only reaches Peru, Bolivia and Argentina, so in this group Chile has
+# no neighbors at all and is free to take any color.
+SCATTERED = (
+    "Brazil, Paraguay, Chile, Venezuela",
+    ["Brazil", "Paraguay", "Chile", "Venezuela"],
+    [("Brazil", "Paraguay"), ("Brazil", "Venezuela")],
 )
 
 # El Salvador and Nicaragua meet only across the Gulf of Fonseca, so they
-# are not neighbors by land and may share a color.
+# are not adjacent by land and may share a color.
 CENTRAL_AMERICA = (
     "Central America",
     ["Mexico", "Belize", "Guatemala", "El Salvador", "Honduras",
@@ -147,27 +163,7 @@ CENTRAL_AMERICA = (
      ("Nicaragua", "Costa Rica"), ("Costa Rica", "Panama")],
 )
 
-# Brazil, Bolivia, Paraguay and Argentina all border one another, so this
-# map cannot be done in 3 colors at all.
-SOUTH_AMERICA = (
-    "South America",
-    ["Colombia", "Venezuela", "Guyana", "Suriname", "French Guiana", "Brazil",
-     "Ecuador", "Peru", "Bolivia", "Paraguay", "Chile", "Argentina", "Uruguay"],
-    [("Colombia", "Venezuela"), ("Colombia", "Brazil"), ("Colombia", "Peru"),
-     ("Colombia", "Ecuador"), ("Venezuela", "Guyana"), ("Venezuela", "Brazil"),
-     ("Guyana", "Suriname"), ("Guyana", "Brazil"), ("Suriname", "French Guiana"),
-     ("Suriname", "Brazil"), ("French Guiana", "Brazil"), ("Ecuador", "Peru"),
-     ("Peru", "Brazil"), ("Peru", "Bolivia"), ("Peru", "Chile"),
-     ("Brazil", "Bolivia"), ("Brazil", "Paraguay"), ("Brazil", "Argentina"),
-     ("Brazil", "Uruguay"), ("Bolivia", "Paraguay"), ("Bolivia", "Chile"),
-     ("Bolivia", "Argentina"), ("Paraguay", "Argentina"), ("Chile", "Argentina"),
-     ("Argentina", "Uruguay")],
-)
-
-MAPS = [BORDER_TRIO, CENTRAL_AMERICA, SOUTH_AMERICA]
-
-# How many colorings to print under --all before summarizing the rest.
-LIST_LIMIT = 30
+MAPS = [NORTH, SCATTERED, CENTRAL_AMERICA]
 
 
 def show(assignment, regions, prefix="    "):
@@ -189,27 +185,19 @@ def report(name, regions, borders, show_all=False):
     print("-" * len(name))
     print(f"  {len(regions)} regions, {len(borders)} borders")
 
-    palette = COLORS
-    solutions = map_coloring_csp(regions, borders, palette).solve_all()
+    solutions = map_coloring_csp(regions, borders, COLORS).solve_all()
     if not solutions:
-        print(f"  no coloring exists with {len(COLORS)} colors, retrying "
-              f"with {SPARE}")
-        palette = COLORS + [SPARE]
-        solutions = map_coloring_csp(regions, borders, palette).solve_all()
+        print(f"  no coloring exists with {len(COLORS)} colors")
+        return
 
-    k, _ = minimum_colors(regions, borders, palette)
-    print(f"  fewest colors needed: {k}")
     print("  one solution:")
     print(show(solutions[0], regions))
-    print(f"  {len(solutions)} solution(s) with {len(palette)} colors, "
+    print(f"  {len(solutions)} possible colorings, "
           f"all valid: {all(is_valid(s, borders) for s in solutions)}")
 
     if show_all:
-        for i, each in enumerate(solutions[:LIST_LIMIT], 1):
+        for i, each in enumerate(solutions, 1):
             print(show(each, regions, prefix=f"  {i:>4}. "))
-        if len(solutions) > LIST_LIMIT:
-            print(f"  ... and {len(solutions) - LIST_LIMIT:,} more "
-                  f"(solve_all() returns the full list)")
 
 
 def main():
@@ -218,20 +206,13 @@ def main():
     print("Part 2: basic solver on the handout's 4x4 Sudoku")
     sudoku_example()
 
-    print("\nPart 3: map coloring")
+    print(f"\nPart 3: map coloring with {len(COLORS)} colors {COLORS}")
     print("Variables: regions   Domains: colors   Constraints: neighbors differ")
     if not show_all:
-        print("(run with --all to list every solution)")
+        print("(run with --all to list all possible colorings)")
 
     for name, regions, borders in MAPS:
         report(name, regions, borders, show_all)
-
-    print("\nThree colors is the minimum for most maps: two is never enough")
-    print("once three countries all border each other, as Mexico, Guatemala")
-    print("and Belize do. But three is not always sufficient. In South America,")
-    print("Brazil, Bolivia, Paraguay and Argentina each border the other three,")
-    print("so that map needs a fourth color. Four is always enough for a flat")
-    print("map (Four Color Theorem).")
 
 
 if __name__ == "__main__":
