@@ -1,22 +1,5 @@
-"""
-CSC 4800 Lab 5 -- Constraint Satisfaction Problems
-
-Part 1  A CSP is variables, a domain of values per variable, and constraints
-        saying which value combinations are allowed.
-Part 2  A basic CSP solver using backtracking, with the Sudoku example.
-Part 3  Map coloring: color every region so no two bordering regions match,
-        with an option to generate all possible colorings.
-
-Run:  python3 csp.py            one solution per map
-      python3 csp.py --all      every solution
-"""
-
 import sys
 
-
-# ==========================================================================
-# Part 2: Basic CSP solver
-# ==========================================================================
 
 class CSP:
     def __init__(self, variables, domains, constraints):
@@ -51,8 +34,6 @@ class CSP:
         """Solve the CSP."""
         return self.backtrack({})
 
-    # ---- option to generate all solutions instead of stopping at the first --
-
     def backtrack_all(self, assignment, solutions):
         """Same search, but record each complete assignment and keep going."""
         if len(assignment) == len(self.variables):
@@ -85,10 +66,10 @@ def sudoku_constraints(assignment):
 
 
 def sudoku_example():
-    """The handout's 4x4 Sudoku, as given.
+    """The handout's 4x4 Sudoku.
 
-    Note it constrains rows and columns but not the 2x2 boxes, so the answer
-    is a Latin square rather than a true Sudoku grid.
+    It constrains rows and columns but not the 2x2 boxes, so the answer is a
+    Latin square rather than a true Sudoku grid.
     """
     # Variables and domains for a simple 4x4 Sudoku
     variables = [(i, j) for i in range(4) for j in range(4)]
@@ -103,10 +84,6 @@ def sudoku_example():
     for i in range(4):
         print("   ", " ".join(str(solution[(i, j)]) for j in range(4)))
 
-
-# ==========================================================================
-# Part 3: Map coloring
-# ==========================================================================
 
 def different_colors(region_a, region_b):
     """Constraint: two bordering regions cannot share a color.
@@ -208,31 +185,22 @@ def report(name, regions, borders, show_all=False):
 def main():
     show_all = "--all" in sys.argv
 
-    print("=" * 70)
-    print("CSC 4800 Lab 5 -- Constraint Satisfaction Problems")
-    print("=" * 70)
-
-    print("\nPart 2: basic solver on the handout's 4x4 Sudoku")
-    print("-" * 46)
+    print("Part 2: basic solver on the handout's 4x4 Sudoku")
     sudoku_example()
 
-    print("\n" + "=" * 70)
-    print("Part 3: map coloring")
+    print("\nPart 3: map coloring")
     print("Variables: regions   Domains: colors   Constraints: neighbors differ")
-    print("=" * 70)
     if not show_all:
         print("(run with --all to list every solution)")
 
     for name, regions, borders in MAPS:
         report(name, regions, borders, show_all)
 
-    print("\n" + "=" * 70)
-    print("Three colors is enough for many maps, including Australia, but not")
+    print("\nThree colors is enough for many maps, including Australia, but not")
     print("for every map: four regions that all border each other force a")
     print("fourth color. Four is always enough for a flat map (Four Color")
     print("Theorem). minimum_colors() finds the smallest that works by")
     print("re-solving the CSP with a bigger palette until one succeeds.")
-    print("=" * 70)
 
 
 if __name__ == "__main__":
