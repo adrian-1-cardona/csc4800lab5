@@ -122,40 +122,66 @@ def minimum_colors(regions, borders, palette):
 # Three colors, per the problem statement.
 COLORS = ["red", "green", "blue"]
 
+# One spare color, used only to report maps that 3 cannot handle.
+SPARE = "yellow"
+
 # Maps are (name, regions, borders). Add your own to the MAPS list below.
 
-# Australia: the textbook map. Tasmania is an island, so it borders nothing
-# and is free to take any color.
-AUSTRALIA = (
-    "Australia",
-    ["WA", "NT", "SA", "Q", "NSW", "V", "T"],
-    [("WA", "NT"), ("WA", "SA"), ("NT", "SA"), ("NT", "Q"), ("SA", "Q"),
-     ("SA", "NSW"), ("SA", "V"), ("Q", "NSW"), ("NSW", "V")],
+# All three of these border each other, so none can share a color. This is
+# the case that makes 3 the minimum rather than 2.
+BORDER_TRIO = (
+    "Mexico, Guatemala, Belize",
+    ["Mexico", "Guatemala", "Belize"],
+    [("Mexico", "Guatemala"), ("Mexico", "Belize"), ("Guatemala", "Belize")],
 )
 
-# Four regions in a ring: opposite corners can reuse a color, so 2 is enough.
-RING = (
-    "Four regions in a ring",
-    ["A", "B", "C", "D"],
-    [("A", "B"), ("B", "C"), ("C", "D"), ("D", "A")],
+# El Salvador and Nicaragua meet only across the Gulf of Fonseca, so they
+# are not neighbors by land and may share a color.
+CENTRAL_AMERICA = (
+    "Central America",
+    ["Mexico", "Belize", "Guatemala", "El Salvador", "Honduras",
+     "Nicaragua", "Costa Rica", "Panama"],
+    [("Mexico", "Belize"), ("Mexico", "Guatemala"), ("Belize", "Guatemala"),
+     ("Guatemala", "El Salvador"), ("Guatemala", "Honduras"),
+     ("El Salvador", "Honduras"), ("Honduras", "Nicaragua"),
+     ("Nicaragua", "Costa Rica"), ("Costa Rica", "Panama")],
 )
 
-# Three regions that all border each other. None can reuse a color, so this
-# is the case that makes 3 the minimum rather than 2.
-TRIANGLE = (
-    "Three mutually bordering regions",
-    ["X", "Y", "Z"],
-    [("X", "Y"), ("Y", "Z"), ("X", "Z")],
+# Brazil, Bolivia, Paraguay and Argentina all border one another, so this
+# map cannot be done in 3 colors at all.
+SOUTH_AMERICA = (
+    "South America",
+    ["Colombia", "Venezuela", "Guyana", "Suriname", "French Guiana", "Brazil",
+     "Ecuador", "Peru", "Bolivia", "Paraguay", "Chile", "Argentina", "Uruguay"],
+    [("Colombia", "Venezuela"), ("Colombia", "Brazil"), ("Colombia", "Peru"),
+     ("Colombia", "Ecuador"), ("Venezuela", "Guyana"), ("Venezuela", "Brazil"),
+     ("Guyana", "Suriname"), ("Guyana", "Brazil"), ("Suriname", "French Guiana"),
+     ("Suriname", "Brazil"), ("French Guiana", "Brazil"), ("Ecuador", "Peru"),
+     ("Peru", "Brazil"), ("Peru", "Bolivia"), ("Peru", "Chile"),
+     ("Brazil", "Bolivia"), ("Brazil", "Paraguay"), ("Brazil", "Argentina"),
+     ("Brazil", "Uruguay"), ("Bolivia", "Paraguay"), ("Bolivia", "Chile"),
+     ("Bolivia", "Argentina"), ("Paraguay", "Argentina"), ("Chile", "Argentina"),
+     ("Argentina", "Uruguay")],
 )
 
-MAPS = [AUSTRALIA, RING, TRIANGLE]
+MAPS = [BORDER_TRIO, CENTRAL_AMERICA, SOUTH_AMERICA]
+
+# How many colorings to print under --all before summarizing the rest.
+LIST_LIMIT = 30
 
 
-def show(assignment, regions, indent="    "):
-    """One line of 'region=color' pairs, lined up in columns."""
-    width = max(len(r) for r in regions) + 7
-    return indent + " ".join(f"{r + '=' + assignment[r]:<{width}}"
-                             for r in regions)
+def show(assignment, regions, prefix="    "):
+    """'region=color' pairs, wrapped so a pair never splits across lines."""
+    pad = " " * len(prefix)
+    lines, line = [], prefix
+    for region in regions:
+        pair = f"{region}={assignment[region]}"
+        if line.strip() and len(line) + len(pair) > 78:
+            lines.append(line.rstrip())
+            line = pad
+        line += pair + "   "
+    lines.append(line.rstrip())
+    return "\n".join(lines)
 
 
 def report(name, regions, borders, show_all=False):
@@ -163,21 +189,27 @@ def report(name, regions, borders, show_all=False):
     print("-" * len(name))
     print(f"  {len(regions)} regions, {len(borders)} borders")
 
-    solutions = map_coloring_csp(regions, borders, COLORS).solve_all()
+    palette = COLORS
+    solutions = map_coloring_csp(regions, borders, palette).solve_all()
     if not solutions:
-        print(f"  no coloring exists with {len(COLORS)} colors")
-        return
+        print(f"  no coloring exists with {len(COLORS)} colors, retrying "
+              f"with {SPARE}")
+        palette = COLORS + [SPARE]
+        solutions = map_coloring_csp(regions, borders, palette).solve_all()
 
-    k, _ = minimum_colors(regions, borders, COLORS)
+    k, _ = minimum_colors(regions, borders, palette)
     print(f"  fewest colors needed: {k}")
     print("  one solution:")
     print(show(solutions[0], regions))
-    print(f"  {len(solutions)} solution(s) with {len(COLORS)} colors, "
+    print(f"  {len(solutions)} solution(s) with {len(palette)} colors, "
           f"all valid: {all(is_valid(s, borders) for s in solutions)}")
 
     if show_all:
-        for i, each in enumerate(solutions, 1):
-            print(f"    {i:>3}." + show(each, regions, indent=" "))
+        for i, each in enumerate(solutions[:LIST_LIMIT], 1):
+            print(show(each, regions, prefix=f"  {i:>4}. "))
+        if len(solutions) > LIST_LIMIT:
+            print(f"  ... and {len(solutions) - LIST_LIMIT:,} more "
+                  f"(solve_all() returns the full list)")
 
 
 def main():
@@ -194,10 +226,12 @@ def main():
     for name, regions, borders in MAPS:
         report(name, regions, borders, show_all)
 
-    print("\nThree colors handles all three maps. Two is sometimes enough")
-    print("(the ring), but three mutually bordering regions rule it out, which")
-    print("is what makes 3 the minimum. minimum_colors() reports the smallest")
-    print("palette that works by re-solving the CSP with 1, then 2, then 3.")
+    print("\nThree colors is the minimum for most maps: two is never enough")
+    print("once three countries all border each other, as Mexico, Guatemala")
+    print("and Belize do. But three is not always sufficient. In South America,")
+    print("Brazil, Bolivia, Paraguay and Argentina each border the other three,")
+    print("so that map needs a fourth color. Four is always enough for a flat")
+    print("map (Four Color Theorem).")
 
 
 if __name__ == "__main__":
